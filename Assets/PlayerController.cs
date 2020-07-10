@@ -704,6 +704,8 @@ public class PlayerController : MonoBehaviour
         2. set mTile[x2, y2, z2] = GameObject
         */
         GenerateGrid(out mTiles);
+
+        NavMeshS
     }
 
     private void FindAvailTiles(out List<Vector3> tiles)
