@@ -8,6 +8,10 @@ public class PlayerController : MonoBehaviour
 {
     public Camera cam;
     public NavMeshAgent agent;
+    public NavMeshSurface surf;
+
+    public Material idle;
+    public Material pushing;
 
     private Vector3 currPos;
 
@@ -23,6 +27,8 @@ public class PlayerController : MonoBehaviour
     private int xLength;
     private int yLength;
     private int zLength;
+
+    private bool isPushing = false;
 
     private void Start()
     {
@@ -682,10 +688,10 @@ public class PlayerController : MonoBehaviour
                     mPath = path;
                 }
             }
-            else
-            {
-                Debug.Log("[0] missed " + hit.collider.tag);
-            }
+        }
+        else
+        {
+            Debug.Log("[0] Raycast missed");
         }
 
         if (mPath.Count != 0 && agent.remainingDistance == 0.0f)
@@ -693,6 +699,16 @@ public class PlayerController : MonoBehaviour
             agent.SetDestination(mPath[0]);
             currPos = mPath[0];
             mPath.RemoveAt(0);
+        }
+
+        // make it so that it activates only once at the beginning
+        if (isPushing)
+        {
+            GetComponent<MeshRenderer>().material = pushing;
+        }
+        else
+        {
+            GetComponent<MeshRenderer>().material = idle;
         }
     }
     
@@ -704,8 +720,7 @@ public class PlayerController : MonoBehaviour
         2. set mTile[x2, y2, z2] = GameObject
         */
         GenerateGrid(out mTiles);
-
-        NavMeshS
+        surf.BuildNavMesh();
     }
 
     private void FindAvailTiles(out List<Vector3> tiles)
