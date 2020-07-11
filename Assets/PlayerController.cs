@@ -3,6 +3,7 @@ using UnityEngine;
 using System;
 using UnityEngine.AI;
 using System.Linq;
+using UnityEngine.Rendering.Universal.Internal;
 
 public class PlayerController : MonoBehaviour
 {
@@ -28,7 +29,18 @@ public class PlayerController : MonoBehaviour
     private int yLength;
     private int zLength;
 
-    private bool isPushing = false;
+    private bool isGoingToPush = false;
+    private bool isMoving = false;
+
+    private int mState;
+    private const int STATE_IDLE = 0;
+    private const int STATE_MOVING_START = -1; // implement through functions such as OnDestinationReached()
+    private const int STATE_MOVING = 1;
+    private const int STATE_MOVING_STOPPED = -1; // implement through functions such as OnDestinationReached()
+    private const int STATE_PUSHING = 2;
+    private const int STATE_MOVING_PUSHING = 3;
+
+
 
     private void Start()
     {
@@ -618,74 +630,81 @@ public class PlayerController : MonoBehaviour
                 Debug.Log("[0] " + hit.collider.tag);
                 List<Vector3> path = new List<Vector3>();
 
-                if(hit.collider.CompareTag("Walkables") || hit.collider.CompareTag("Walkable Ramps"))
+                if (mState != STATE_PUSHING)
                 {
-                    Debug.Log("[1] Walkables");
-                    // walkables
-                    FindOptPath(currPos, hit.collider.transform.position, out path);
-                }
-                else if (hit.collider.CompareTag("Pushables"))
-                {
-                    Debug.Log("[1] Pushables");
-                    List<Vector3> testWalkable = new List<Vector3>();
-                    List<Vector3> testPushable = new List<Vector3>();
-
-                    // test Walkables
-                    FindOptPath(currPos, hit.collider.transform.position, out testWalkable);
-
-                    // test Pushables
-                    List<Vector3>[] testPushables = new List<Vector3>[4];
-                    FindOptPath(currPos, hit.collider.transform.position + Vector3.down + Vector3.forward, out testPushables[0]);
-                    FindOptPath(currPos, hit.collider.transform.position + Vector3.down + Vector3.right, out testPushables[1]);
-                    FindOptPath(currPos, hit.collider.transform.position + Vector3.down + Vector3.back, out testPushables[2]);
-                    FindOptPath(currPos, hit.collider.transform.position + Vector3.down + Vector3.left, out testPushables[3]);
-
-                    for (int i = 0; i < 4; i ++)
+                    if (hit.collider.CompareTag("Walkables") || hit.collider.CompareTag("Walkable Ramps"))
                     {
-                        if (testPushables[i].Count > 0 && testPushable.Count == 0)
-                        {
-                            testPushable = testPushables[i];
-                        }
-
-                        if (testPushables[i].Count > 0 && testPushable.Count > 0 && testPushable.Count > testPushables[i].Count)
-                        {
-                            testPushable = testPushables[i];
-                        }
-
-                        // how can we consider the "least turn"
+                        Debug.Log("[1] Walkables");
+                        // walkables
+                        FindOptPath(currPos, hit.collider.transform.position, out path);
                     }
-                    
-                    if (testWalkable.Count > 0 && testPushable.Count > 0) // both
+                    else if (hit.collider.CompareTag("Pushables"))
                     {
-                        Debug.Log("[2] Both");
-                        if (testPushable.Count <= testWalkable.Count)
+                        Debug.Log("[1] Pushables");
+                        List<Vector3> testWalkable = new List<Vector3>();
+                        List<Vector3> testPushable = new List<Vector3>();
+
+                        // test Walkables
+                        FindOptPath(currPos, hit.collider.transform.position, out testWalkable);
+
+                        // test Pushables
+                        List<Vector3>[] testPushables = new List<Vector3>[4];
+                        FindOptPath(currPos, hit.collider.transform.position + Vector3.down + Vector3.forward, out testPushables[0]);
+                        FindOptPath(currPos, hit.collider.transform.position + Vector3.down + Vector3.right, out testPushables[1]);
+                        FindOptPath(currPos, hit.collider.transform.position + Vector3.down + Vector3.back, out testPushables[2]);
+                        FindOptPath(currPos, hit.collider.transform.position + Vector3.down + Vector3.left, out testPushables[3]);
+
+                        for (int i = 0; i < 4; i++)
                         {
-                            // pushable
-                            path = testPushable;
+                            if (testPushables[i].Count > 0 && testPushable.Count == 0)
+                            {
+                                testPushable = testPushables[i];
+                            }
+
+                            if (testPushables[i].Count > 0 && testPushable.Count > 0 && testPushable.Count > testPushables[i].Count)
+                            {
+                                testPushable = testPushables[i];
+                            }
+
+                            // how can we consider the "least turn"
                         }
-                        else
+
+                        if (testWalkable.Count > 0 && testPushable.Count > 0) // both
                         {
-                            // walkable
+                            Debug.Log("[2] Both");
+                            if (testPushable.Count <= testWalkable.Count)
+                            {
+                                // pushable
+                                path = testPushable;
+                            }
+                            else
+                            {
+                                // walkable
+                                path = testWalkable;
+                            }
+                        }
+                        else if (testWalkable.Count > 0) // walkable only
+                        {
+                            Debug.Log("[2] Walkable Only");
                             path = testWalkable;
                         }
+                        else if (testPushable.Count > 0) // pushable only
+                        {
+                            Debug.Log("[2] Pushable Only");
+                            path = testPushable;
+                        }
                     }
-                    else if (testWalkable.Count > 0) // walkable only
+
+                    Debug.Log("# of nodes: " + path.Count);
+
+                    if (path.Count != 0)
                     {
-                        Debug.Log("[2] Walkable Only");
-                        path = testWalkable;
-                    }
-                    else if (testPushable.Count > 0) // pushable only
-                    {
-                        Debug.Log("[2] Pushable Only");
-                        path = testPushable;
+                        mPath = path;
                     }
                 }
-
-                Debug.Log("# of nodes: " + path.Count);
-
-                if (path.Count != 0)
+                else
                 {
-                    mPath = path;
+                    // pushing state
                 }
             }
         }
@@ -701,9 +720,32 @@ public class PlayerController : MonoBehaviour
             mPath.RemoveAt(0);
         }
 
-        // make it so that it activates only once at the beginning
-        if (isPushing)
+        // Latch isMoving
+        if (isMoving && agent.remainingDistance == 0.0f)
         {
+            OnDestinationReached();
+            isMoving = false;
+        }
+
+        if (!isMoving && agent.remainingDistance > 0)
+        {
+            isMoving = true;
+        }
+    }
+    
+    public void StartMoving()
+    {
+        // to be used with animation controller
+
+        
+    }
+
+    private void OnDestinationReached()
+    {
+        if (isGoingToPush)
+        {
+            mState = STATE_PUSHING;
+            // isGoingToPush = false
             GetComponent<MeshRenderer>().material = pushing;
         }
         else
@@ -711,7 +753,7 @@ public class PlayerController : MonoBehaviour
             GetComponent<MeshRenderer>().material = idle;
         }
     }
-    
+
     public void OnTerrainUpdated()
     {
         /*
