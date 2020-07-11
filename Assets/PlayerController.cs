@@ -724,28 +724,29 @@ public class PlayerController : MonoBehaviour
         if (isMoving && agent.remainingDistance == 0.0f)
         {
             OnDestinationReached();
-            isMoving = false;
         }
 
         if (!isMoving && agent.remainingDistance > 0)
         {
-            isMoving = true;
+            OnStartMoving();
         }
     }
     
-    public void StartMoving()
+    public void OnStartMoving()
     {
         // to be used with animation controller
+        isMoving = true;
 
-        
     }
 
     private void OnDestinationReached()
     {
+        isMoving = false;
+
         if (isGoingToPush)
         {
             mState = STATE_PUSHING;
-            // isGoingToPush = false
+            isGoingToPush = false;
             GetComponent<MeshRenderer>().material = pushing;
         }
         else
