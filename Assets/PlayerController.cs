@@ -29,16 +29,18 @@ public class PlayerController : MonoBehaviour
     private int yLength;
     private int zLength;
 
-    private bool isGoingToPush = false;
-    private bool isMoving = false;
+    public bool isGoingToPush = false;
+    public bool isMoving = false;
 
-    private int mState;
+    public int mState = STATE_IDLE;
     private const int STATE_IDLE = 0;
     private const int STATE_MOVING_START = -1; // implement through functions such as OnDestinationReached()
     private const int STATE_MOVING = 1;
     private const int STATE_MOVING_STOPPED = -1; // implement through functions such as OnDestinationReached()
     private const int STATE_PUSHING = 2;
     private const int STATE_MOVING_PUSHING = 3;
+
+    private Vector3 tilePushed;
 
 
 
@@ -637,6 +639,7 @@ public class PlayerController : MonoBehaviour
                         Debug.Log("[1] Walkables");
                         // walkables
                         FindOptPath(currPos, hit.collider.transform.position, out path);
+                        isGoingToPush = false;
                     }
                     else if (hit.collider.CompareTag("Pushables"))
                     {
@@ -676,22 +679,28 @@ public class PlayerController : MonoBehaviour
                             {
                                 // pushable
                                 path = testPushable;
+                                isGoingToPush = true;
+                                tilePushed = hit.collider.transform.position;
                             }
                             else
                             {
                                 // walkable
                                 path = testWalkable;
+                                isGoingToPush = false;
                             }
                         }
                         else if (testWalkable.Count > 0) // walkable only
                         {
                             Debug.Log("[2] Walkable Only");
                             path = testWalkable;
+                            isGoingToPush = false;
                         }
                         else if (testPushable.Count > 0) // pushable only
                         {
                             Debug.Log("[2] Pushable Only");
                             path = testPushable;
+                            isGoingToPush = true;
+                            tilePushed = hit.collider.transform.position;
                         }
                     }
 
@@ -699,19 +708,56 @@ public class PlayerController : MonoBehaviour
 
                     if (path.Count != 0)
                     {
+                        if (path[path.Count - 1] == currPos)
+                        {
+                            OnDestinationReached();
+                        }
+
                         mPath = path;
+                    }
+                    else
+                    {
+                        // no path found
+                        isGoingToPush = false;
                     }
                 }
                 else
                 {
                     // pushing state
+                    if (tilePushed == hit.collider.transform.position)
+                    {
+                        OnDestinationReached(); // push cancel
+                    }
+                    else
+                    {
+                        // movement restriction
+                        // 1. selected tile must have the same z value as tilePushed or currPos
+                        if (tilePushed.z == currPos.z)
+                        {
+                            // move along x
+                            // both player and the pushable should be able to move
+                        }
+                        else if (tilePushed.x == currPos.x)
+                        {
+                            // move along z
+                            // both player and the pushable should be able to move
+                        }
+
+                        // 2. both player and the tile should be able to move there
+                    }
+
+                    if (path.Count != 0)
+                    {
+                        mPath = path;
+                    }
                 }
             }
+            else
+            {
+                Debug.Log("[0] Raycast missed");
+            }
         }
-        else
-        {
-            Debug.Log("[0] Raycast missed");
-        }
+        
 
         if (mPath.Count != 0 && agent.remainingDistance == 0.0f)
         {
@@ -724,25 +770,24 @@ public class PlayerController : MonoBehaviour
         if (isMoving && agent.remainingDistance == 0.0f)
         {
             OnDestinationReached();
+            isMoving = false;
         }
 
         if (!isMoving && agent.remainingDistance > 0)
         {
             OnStartMoving();
+            isMoving = true;
         }
     }
     
     public void OnStartMoving()
     {
         // to be used with animation controller
-        isMoving = true;
-
+        mState = STATE_MOVING;
     }
 
     private void OnDestinationReached()
     {
-        isMoving = false;
-
         if (isGoingToPush)
         {
             mState = STATE_PUSHING;
@@ -751,7 +796,15 @@ public class PlayerController : MonoBehaviour
         }
         else
         {
+            mState = STATE_IDLE;
             GetComponent<MeshRenderer>().material = idle;
+        }
+
+        if (mState == STATE_PUSHING)
+        {
+            // should only be called when an object is pushed
+            // but also called when push cancel
+            OnTerrainUpdated();
         }
     }
 
@@ -764,42 +817,6 @@ public class PlayerController : MonoBehaviour
         */
         GenerateGrid(out mTiles);
         surf.BuildNavMesh();
-    }
-
-    private void FindAvailTiles(out List<Vector3> tiles)
-    {
-        // initialize tiles
-        tiles = null;
-
-        // get all Walkables
-        GameObject[] walkables = GameObject.FindGameObjectsWithTag("Walkables");
-        GameObject[] walkableRamps = GameObject.FindGameObjectsWithTag("Walkable Ramps");
-
-        // for each walkable, if there is no Pushable on top of Walkable, add it to tiles
-        foreach (GameObject obj in walkables)
-        {
-            Collider[] hitColliders = Physics.OverlapSphere(obj.transform.position + Vector3.up, 0.9f);
-
-            foreach (Collider col in hitColliders)
-            {
-                if (col.gameObject.tag != "Walkables" && col.gameObject.tag != "Walkable Ramps" && col.gameObject.tag != "Pushables")
-                {
-                    tiles.Add(obj.transform.position);
-                }
-            }
-        }
-        foreach (GameObject obj in walkableRamps)
-        {
-            Collider[] hitColliders = Physics.OverlapSphere(obj.transform.position + Vector3.up, 0.9f);
-
-            foreach (Collider col in hitColliders)
-            {
-                if (col.gameObject.tag != "Walkables" && col.gameObject.tag != "Walkable Ramps" && col.gameObject.tag != "Pushables")
-                {
-                    tiles.Add(obj.transform.position);
-                }
-            }
-        }
     }
 }
 
