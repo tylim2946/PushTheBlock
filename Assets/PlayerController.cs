@@ -357,6 +357,12 @@ public class PlayerController : MonoBehaviour
             check1 = true;
         }
 
+        // when t1 and tile are ramps
+        if (t1.GetObject().CompareTag("Walkable Ramps") && tile.GetObject().CompareTag("Walkable Ramps"))
+        {
+            check1 = true;
+        }
+
         return check1;
     }
 
