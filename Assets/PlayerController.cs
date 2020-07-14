@@ -4,6 +4,7 @@ using System;
 using UnityEngine.AI;
 using System.Linq;
 using UnityEngine.Rendering.Universal.Internal;
+using UnityEngine.Tilemaps;
 
 public class PlayerController : MonoBehaviour
 {
@@ -15,6 +16,7 @@ public class PlayerController : MonoBehaviour
     public Material pushing;
 
     private Vector3 currPos;
+    private GameObject tilePushed;
 
     public GameObject corner1;
     public GameObject corner2;
@@ -39,9 +41,6 @@ public class PlayerController : MonoBehaviour
     private const int STATE_MOVING_STOPPED = -1; // implement through functions such as OnDestinationReached()
     private const int STATE_PUSHING = 2;
     private const int STATE_MOVING_PUSHING = 3;
-
-    private Vector3 tilePushed;
-
 
 
     private void Start()
@@ -72,8 +71,8 @@ public class PlayerController : MonoBehaviour
 
         // initialize currPos
         List<Collider> nearbyObj = Physics.OverlapSphere(transform.position + Vector3.down * 1.1f, 0.01f).ToList();
-        
-        for (int i = nearbyObj.Count - 1; i >= 0; i --)
+
+        for (int i = nearbyObj.Count - 1; i >= 0; i--)
         {
             if (nearbyObj[i].tag != "Walkables" && nearbyObj[i].tag != "Walkable Ramps" && nearbyObj[i].tag != "Pushables")
             {
@@ -84,7 +83,7 @@ public class PlayerController : MonoBehaviour
         currPos = nearbyObj[0].transform.position;
 
         // generate tile grid
-        for (int x =  0; x < xLength; x++)
+        for (int x = 0; x < xLength; x++)
         {
             for (int y = 0; y < yLength; y++)
             {
@@ -97,7 +96,7 @@ public class PlayerController : MonoBehaviour
                         if (t.tag == "Walkables" || t.tag == "Walkable Ramps" || t.tag == "Pushables")
                         {
                             Collider[] aboveTile = Physics.OverlapSphere(t.transform.position + Vector3.up, 0.4f);
-                            
+
                             if (aboveTile.Length == 0)
                             {
                                 tiles[x, y, z] = new Tile();
@@ -130,7 +129,7 @@ public class PlayerController : MonoBehaviour
 
     private void InitTiles()
     {
-        foreach(Tile t in mTiles)
+        foreach (Tile t in mTiles)
         {
             if (t != null)
             {
@@ -157,47 +156,51 @@ public class PlayerController : MonoBehaviour
         // initialize path variable
         path = new List<Vector3>();
 
-        // Explore neighbors to find candidates
-        do  
+        if (IsWithinWorld(dest))
         {
-            if (IsWithinWorld(worldPos))
+            Debug.Log(start);
+            // Explore neighbors to find candidates
+            do
             {
-                // Expand node at targetPos and add them to candidates
-                TileAtArrayPos(worldPos).SetVisited();
-
-                if (candidates.Contains(TileAtArrayPos(worldPos)))
+                if (IsWithinWorld(worldPos))
                 {
-                    candidates.Remove(TileAtArrayPos(worldPos));
+                    // Expand node at targetPos and add them to candidates
+                    TileAtArrayPos(worldPos).SetVisited();
+
+                    if (candidates.Contains(TileAtArrayPos(worldPos)))
+                    {
+                        candidates.Remove(TileAtArrayPos(worldPos));
+                    }
+
+                    List<Tile> neighbors = InitNeighbors(TileAtArrayPos(worldPos), dest);
+
+                    foreach (Tile t in neighbors)
+                    {
+                        if (!candidates.Contains(t) && !t.HasVisited())
+                        {
+                            candidates.Add(t); // add these to candidates
+                        }
+
+                        if (t.GetH() == 0)
+                        {
+                            isPathFound = true;
+                            destination = t; //@@@@@@@ 138
+                        }
+                    }
                 }
 
-                List<Tile> neighbors = InitNeighbors(TileAtArrayPos(worldPos), dest);
-
-                foreach (Tile t in neighbors)
+                if (candidates.Count != 0)
                 {
-                    if (!candidates.Contains(t) && !t.HasVisited())
-                    {
-                        candidates.Add(t); // add these to candidates
-                    }
-                    
-                    if (t.GetH() == 0)
-                    {
-                        isPathFound = true;
-                        destination = t; //@@@@@@@ 138
-                    }
+                    // set up sorted list
+                    sortedCandidates = candidates.OrderBy(o => o.GetF()).ToList();
+
+                    // set new targetPos
+                    worldPos = sortedCandidates[0].GetPosition();
                 }
-            }
 
-            if (candidates.Count != 0)
-            {
-                // set up sorted list
-                sortedCandidates = candidates.OrderBy(o => o.GetF()).ToList();
 
-                // set new targetPos
-                worldPos = sortedCandidates[0].GetPosition();
-            }
-            
-
-        } while (!(candidates.Count == 0 || isPathFound));
+            } while (!(candidates.Count == 0 || isPathFound));
+        }
 
         // Convert explored nodes into path
         if (isPathFound)
@@ -224,14 +227,16 @@ public class PlayerController : MonoBehaviour
 
         InitTiles();
 
+        Debug.Log("pathFound: " + isPathFound);
+
         return isPathFound;
     }
 
     private List<Tile> InitNeighbors(Tile tile, Vector3 dest)
     {
         List<Tile> results = new List<Tile>();
-        
-        for (int i = 1; i <= 12; i ++) // but then you can only go up if it is ramp && ramp direction matters
+
+        for (int i = 1; i <= 12; i++) // but then you can only go up if it is ramp && ramp direction matters
         {
             Tile test = InitNeighbor(tile, dest, i);
 
@@ -261,7 +266,7 @@ public class PlayerController : MonoBehaviour
         Vector3 worldPos = new Vector3();
 
         // set targetPos
-        switch(side)
+        switch (side)
         {
             case 1: // N
                 worldPos = tile.GetPosition() + Vector3.forward;
@@ -381,7 +386,7 @@ public class PlayerController : MonoBehaviour
         if (tile.GetObject().CompareTag("Walkable Ramps"))
         {
             ori2 = tile.GetObject().transform.parent.parent.rotation.eulerAngles.y;
-        }             
+        }
 
         if (side >= 1 && side <= 4)
         {
@@ -454,12 +459,12 @@ public class PlayerController : MonoBehaviour
             {
                 if (side == 1 || side == 3)
                 {
-                    if (ori1 == ori2 && (ori1 == 90|| ori1 == 270))
+                    if (ori1 == ori2 && (ori1 == 90 || ori1 == 270))
                     {
                         check2 = true;
                     }
                 }
-                else if (side == 2|| side == 4 )
+                else if (side == 2 || side == 4)
                 {
                     if (ori1 == ori2 && (ori1 == 0 || ori1 == 180))
                     {
@@ -513,7 +518,7 @@ public class PlayerController : MonoBehaviour
             {
                 if (ori1 == ori2)
                 {
-                    switch(side)
+                    switch (side)
                     {
                         case 5:
                             if (ori1 == 180)
@@ -633,7 +638,7 @@ public class PlayerController : MonoBehaviour
             Ray ray = cam.ScreenPointToRay(Input.mousePosition);
             RaycastHit hit;
 
-            if(Physics.Raycast(ray, out hit))
+            if (Physics.Raycast(ray, out hit))
             {
                 Debug.Log("[0] " + hit.collider.tag);
                 List<Vector3> path = new List<Vector3>();
@@ -650,7 +655,7 @@ public class PlayerController : MonoBehaviour
                     else if (hit.collider.CompareTag("Pushables"))
                     {
                         Debug.Log("[1] Pushables");
-                        List<Vector3> testWalkable = new List<Vector3>();
+                        List<Vector3> testWalkable;
                         List<Vector3> testPushable = new List<Vector3>();
 
                         // test Walkables
@@ -675,7 +680,7 @@ public class PlayerController : MonoBehaviour
                                 testPushable = testPushables[i];
                             }
 
-                            // how can we consider the "least turn"
+                            // how can we consider the "least turn" @@@@@@@@@@@@
                         }
 
                         if (testWalkable.Count > 0 && testPushable.Count > 0) // both
@@ -686,7 +691,7 @@ public class PlayerController : MonoBehaviour
                                 // pushable
                                 path = testPushable;
                                 isGoingToPush = true;
-                                tilePushed = hit.collider.transform.position;
+                                tilePushed = hit.collider.gameObject;
                             }
                             else
                             {
@@ -706,7 +711,7 @@ public class PlayerController : MonoBehaviour
                             Debug.Log("[2] Pushable Only");
                             path = testPushable;
                             isGoingToPush = true;
-                            tilePushed = hit.collider.transform.position;
+                            tilePushed = hit.collider.gameObject;
                         }
                     }
 
@@ -730,26 +735,31 @@ public class PlayerController : MonoBehaviour
                 else
                 {
                     // pushing state
-                    if (tilePushed == hit.collider.transform.position)
+                    if (tilePushed.transform.position == hit.collider.transform.position)
                     {
                         OnDestinationReached(); // push cancel
                     }
-                    else
+                    else // movement restriction
                     {
-                        // movement restriction
-                        // 1. selected tile must have the same z value as tilePushed or currPos
-                        if (tilePushed.z == currPos.z)
-                        {
-                            // move along x
-                            // both player and the pushable should be able to move
-                        }
-                        else if (tilePushed.x == currPos.x)
-                        {
-                            // move along z
-                            // both player and the pushable should be able to move
-                        }
+                        // variable declaration
+                        List<Vector3> player;
+                        List<Vector3> tile;
 
-                        // 2. both player and the tile should be able to move there
+                        // 1. selected tile must have the same z/x value as tilePushed or currPos
+
+                        // not only z/x but y value should also be the same @@@@@@@@@@@@@@@
+                        if ((tilePushed.transform.position.z == currPos.z && hit.transform.position.z == currPos.z) || (tilePushed.transform.position.x == currPos.x && hit.transform.position.x == currPos.x))
+                        {
+                            // 2. both player and the tile should be able to move there
+
+                            FindOptPath(tilePushed.transform.position, hit.transform.position, out tile);
+                            FindOptPath(currPos, hit.transform.position + (currPos - (tilePushed.transform.position + Vector3.down)), out player);
+
+                            if (player.Count > 0 && tile.Count > 0)
+                            {
+                                path = player;
+                            }
+                        }
                     }
 
                     if (path.Count != 0)
@@ -763,7 +773,7 @@ public class PlayerController : MonoBehaviour
                 Debug.Log("[0] Raycast missed");
             }
         }
-        
+
 
         if (mPath.Count != 0 && agent.remainingDistance == 0.0f)
         {
@@ -784,8 +794,10 @@ public class PlayerController : MonoBehaviour
             OnStartMoving();
             isMoving = true;
         }
+
+
     }
-    
+
     public void OnStartMoving()
     {
         // to be used with animation controller
@@ -799,11 +811,19 @@ public class PlayerController : MonoBehaviour
             mState = STATE_PUSHING;
             isGoingToPush = false;
             GetComponent<MeshRenderer>().material = pushing;
+            OnPushableHeld(); // @@@@@@@@@
         }
-        else
+        else if (mState == STATE_PUSHING)
         {
             mState = STATE_IDLE;
             GetComponent<MeshRenderer>().material = idle;
+            OnPushableReleased(); // @@@@@@@@@@@@@@@
+        }
+        else
+        {
+            //mState = STATE_IDLE;
+            //GetComponent<MeshRenderer>().material = idle;
+            //Debug.Log("Remove this if case when it is not used or not needed");
         }
 
         if (mState == STATE_PUSHING)
@@ -812,6 +832,19 @@ public class PlayerController : MonoBehaviour
             // but also called when push cancel
             OnTerrainUpdated();
         }
+    }
+
+    private void OnPushableHeld()
+    {
+        //tilePushed.layer = LayerMask.NameToLayer("Ignore Raycast"); // @@@@@ how are we going to reselect to it to release?
+        tilePushed.transform.parent = transform;
+    }
+
+    private void OnPushableReleased()
+    {
+        // this should be called before new tilePushed is assigned
+        //tilePushed.layer = LayerMask.NameToLayer("Default");
+        tilePushed.transform.SetParent(null);
     }
 
     public void OnTerrainUpdated()
@@ -853,7 +886,7 @@ class Tile
 
     public Tile()
     {
-        
+
     }
 
     public void Init()
@@ -918,7 +951,7 @@ class Tile
         {
             if (mDest != dest)
             {
-                testH = (float) Math.Sqrt(Math.Pow(Math.Abs(mObj.transform.position.x - dest.x), 2)
+                testH = (float)Math.Sqrt(Math.Pow(Math.Abs(mObj.transform.position.x - dest.x), 2)
                 + Math.Pow(Math.Abs(mObj.transform.position.y - dest.y), 2)
                 + Math.Pow(Math.Abs(mObj.transform.position.z - dest.z), 2));
 
