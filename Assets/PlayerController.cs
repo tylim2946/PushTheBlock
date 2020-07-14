@@ -5,6 +5,7 @@ using UnityEngine.AI;
 using System.Linq;
 using UnityEngine.Rendering.Universal.Internal;
 using UnityEngine.Tilemaps;
+using UnityEditorInternal;
 
 public class PlayerController : MonoBehaviour
 {
@@ -181,7 +182,7 @@ public class PlayerController : MonoBehaviour
                             candidates.Add(t); // add these to candidates
                         }
 
-                        if (t.GetH() == 0)
+                        if (V3Equal(t.GetPosition(), dest, 0.1f))
                         {
                             isPathFound = true;
                             destination = t; //@@@@@@@ 138
@@ -217,12 +218,14 @@ public class PlayerController : MonoBehaviour
                 {
                     parent = parent.GetParent();
 
-                    if (parent.GetPosition() != start)
+                    if (!V3Equal(parent.GetPosition(), start, 0.1f))
                     {
                         path.Insert(0, parent.GetPosition());
                     }
                 }
-            } while (parent.GetPosition() != start);
+
+                Console.WriteLine("[parent]: " + parent.GetPosition() + " [start]: " + start + " [equal?]: " + (parent.GetPosition() == start));
+            } while (!V3Equal(parent.GetPosition(), start, 0.1f));
         }
 
         InitTiles();
@@ -230,6 +233,11 @@ public class PlayerController : MonoBehaviour
         Debug.Log("pathFound: " + isPathFound);
 
         return isPathFound;
+    }
+
+    private bool V3Equal(Vector3 a, Vector3 b, float maxDiff)
+    {
+        return Vector3.SqrMagnitude(a - b) < (maxDiff * maxDiff); // 9.99999944E-11f;
     }
 
     private List<Tile> InitNeighbors(Tile tile, Vector3 dest)
@@ -623,7 +631,7 @@ public class PlayerController : MonoBehaviour
 
     private bool IsWithinWorld(Vector3 worldPos)
     {
-        return worldPos.x >= cornerPos1.x && worldPos.x <= cornerPos2.x && worldPos.y >= cornerPos1.y && worldPos.y <= cornerPos2.y && worldPos.z >= cornerPos1.z && worldPos.z <= cornerPos2.z;
+        return worldPos.x >= cornerPos1.x - 0.1f && worldPos.x <= cornerPos2.x + 0.1f && worldPos.y >= cornerPos1.y - 0.1f && worldPos.y <= cornerPos2.y + 0.1f && worldPos.z >= cornerPos1.z - 0.1f && worldPos.z <= cornerPos2.z + 0.1f;
     }
 
     private bool IsWithinArray(Vector3 arrayPos)
@@ -735,7 +743,7 @@ public class PlayerController : MonoBehaviour
                 else
                 {
                     // pushing state
-                    if (tilePushed.transform.position == hit.collider.transform.position)
+                    if (V3Equal(tilePushed.transform.position, hit.collider.transform.position, 0.1f)) 
                     {
                         OnDestinationReached(); // push cancel
                     }
@@ -752,7 +760,9 @@ public class PlayerController : MonoBehaviour
                         {
                             // 2. both player and the tile should be able to move there
 
-                            FindOptPath(tilePushed.transform.position, hit.transform.position, out tile);
+                            FindOptPath(tilePushed.transform.position + Vector3.down, hit.transform.position, out tile);
+                            Debug.Log("[crate start]: " + (tilePushed.transform.position + Vector3.down) + " [crate dest]: " + hit.transform.position);
+                            Debug.Log("[player start]: " + currPos + " [player dest]: " + (hit.transform.position + (currPos - (tilePushed.transform.position + Vector3.down))));
                             FindOptPath(currPos, hit.transform.position + (currPos - (tilePushed.transform.position + Vector3.down)), out player);
 
                             if (player.Count > 0 && tile.Count > 0)
@@ -779,6 +789,7 @@ public class PlayerController : MonoBehaviour
         {
             agent.SetDestination(mPath[0]);
             currPos = mPath[0];
+            Debug.Log("[currPos] " + currPos);
             mPath.RemoveAt(0);
         }
 
@@ -801,7 +812,11 @@ public class PlayerController : MonoBehaviour
     public void OnStartMoving()
     {
         // to be used with animation controller
-        mState = STATE_MOVING;
+        if (mState != STATE_PUSHING)
+        {
+            mState = STATE_MOVING;
+        }
+        
     }
 
     private void OnDestinationReached()
@@ -813,31 +828,37 @@ public class PlayerController : MonoBehaviour
             GetComponent<MeshRenderer>().material = pushing;
             OnPushableHeld(); // @@@@@@@@@
         }
-        else if (mState == STATE_PUSHING)
+        else if (mState == STATE_PUSHING) // must come before mState == STATE_MOVING_PUSHING????
         {
             mState = STATE_IDLE;
             GetComponent<MeshRenderer>().material = idle;
             OnPushableReleased(); // @@@@@@@@@@@@@@@
         }
-        else
+        else if (mState == STATE_MOVING_PUSHING) // must come after mState == STATE_PUSHING????
         {
-            //mState = STATE_IDLE;
+            mState = STATE_PUSHING;
+        }
+        else if (mState != STATE_PUSHING)
+        {
+            mState = STATE_IDLE;
             //GetComponent<MeshRenderer>().material = idle;
-            //Debug.Log("Remove this if case when it is not used or not needed");
         }
 
         if (mState == STATE_PUSHING)
         {
             // should only be called when an object is pushed
             // but also called when push cancel
-            OnTerrainUpdated();
+            //OnTerrainUpdated();
         }
     }
 
     private void OnPushableHeld()
     {
         //tilePushed.layer = LayerMask.NameToLayer("Ignore Raycast"); // @@@@@ how are we going to reselect to it to release?
-        tilePushed.transform.parent = transform;
+        tilePushed.transform.SetParent(transform, true);
+        tilePushed.tag = "Untagged";
+        agent.angularSpeed = 0;
+        OnTerrainUpdated();
     }
 
     private void OnPushableReleased()
@@ -845,6 +866,9 @@ public class PlayerController : MonoBehaviour
         // this should be called before new tilePushed is assigned
         //tilePushed.layer = LayerMask.NameToLayer("Default");
         tilePushed.transform.SetParent(null);
+        tilePushed.tag = "Pushables";
+        agent.angularSpeed = 300;
+        OnTerrainUpdated();
     }
 
     public void OnTerrainUpdated()
