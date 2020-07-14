@@ -16,8 +16,8 @@ TagManager:
   - UI
   - 
   - 
-  - 
-  - 
+  - Ignore NavMesh
+  - Ignore NavMesh and Raycast
   - 
   - 
   - 

@@ -41,7 +41,7 @@ public class PlayerController : MonoBehaviour
     private const int STATE_MOVING = 1;
     private const int STATE_MOVING_STOPPED = -1; // implement through functions such as OnDestinationReached()
     private const int STATE_PUSHING = 2;
-    private const int STATE_MOVING_PUSHING = 3;
+    private const int STATE_PUSH_RELEASE = 3;
 
 
     private void Start()
@@ -237,7 +237,27 @@ public class PlayerController : MonoBehaviour
 
     private bool V3Equal(Vector3 a, Vector3 b, float maxDiff)
     {
-        return Vector3.SqrMagnitude(a - b) < (maxDiff * maxDiff); // 9.99999944E-11f;
+        return Vector3.SqrMagnitude(a - b) <= (maxDiff * maxDiff); // 9.99999944E-11f;
+    }
+
+    private bool V3CompEqual(Vector3 a, Vector3 b, string component, float maxDiff)
+    {
+        bool result = false;
+
+        switch (component)
+        {
+            case "x":
+                result = Math.Abs(a.x - b.x) <= maxDiff;
+                break;
+            case "y":
+                result = Math.Abs(a.y - b.y) <= maxDiff;
+                break;
+            case "z":
+                result = Math.Abs(a.z - b.z) <= maxDiff;
+                break;
+        }
+
+        return result;
     }
 
     private List<Tile> InitNeighbors(Tile tile, Vector3 dest)
@@ -729,7 +749,7 @@ public class PlayerController : MonoBehaviour
                     {
                         if (path[path.Count - 1] == currPos)
                         {
-                            OnDestinationReached();
+                            OnDestinationReached(); // @@@@@@@@ technically this is one tile before the destination
                         }
 
                         mPath = path;
@@ -745,6 +765,7 @@ public class PlayerController : MonoBehaviour
                     // pushing state
                     if (V3Equal(tilePushed.transform.position, hit.collider.transform.position, 0.1f)) 
                     {
+                        mState = STATE_PUSH_RELEASE;
                         OnDestinationReached(); // push cancel
                     }
                     else // movement restriction
@@ -756,7 +777,10 @@ public class PlayerController : MonoBehaviour
                         // 1. selected tile must have the same z/x value as tilePushed or currPos
 
                         // not only z/x but y value should also be the same @@@@@@@@@@@@@@@
-                        if ((tilePushed.transform.position.z == currPos.z && hit.transform.position.z == currPos.z) || (tilePushed.transform.position.x == currPos.x && hit.transform.position.x == currPos.x))
+                        Debug.Log("<FPC-1>[crate.z]: " + tilePushed.transform.position.z + " [currPos.z]: " + currPos.z + " [hit.z]: " + hit.transform.position.z + " [crate.z == currPos.z]: " + (tilePushed.transform.position.z == currPos.z) + " [hit.z == currPos.z]: " + (hit.transform.position.z == currPos.z)); //float precision check
+                        //if ((tilePushed.transform.position.z == currPos.z && hit.transform.position.z == currPos.z) || (tilePushed.transform.position.x == currPos.x && hit.transform.position.x == currPos.x))
+                        if ((V3CompEqual(tilePushed.transform.position, currPos, "z", 0.1f) && V3CompEqual(hit.transform.position, currPos, "z", 0.1f)) ||
+                            (V3CompEqual(tilePushed.transform.position, currPos, "x", 0.1f) && V3CompEqual(hit.transform.position, currPos, "x", 0.1f)))
                         {
                             // 2. both player and the tile should be able to move there
 
@@ -805,8 +829,6 @@ public class PlayerController : MonoBehaviour
             OnStartMoving();
             isMoving = true;
         }
-
-
     }
 
     public void OnStartMoving()
@@ -828,15 +850,11 @@ public class PlayerController : MonoBehaviour
             GetComponent<MeshRenderer>().material = pushing;
             OnPushableHeld(); // @@@@@@@@@
         }
-        else if (mState == STATE_PUSHING) // must come before mState == STATE_MOVING_PUSHING????
+        else if (mState == STATE_PUSH_RELEASE) // must come before mState == STATE_MOVING_PUSHING????
         {
             mState = STATE_IDLE;
             GetComponent<MeshRenderer>().material = idle;
             OnPushableReleased(); // @@@@@@@@@@@@@@@
-        }
-        else if (mState == STATE_MOVING_PUSHING) // must come after mState == STATE_PUSHING????
-        {
-            mState = STATE_PUSHING;
         }
         else if (mState != STATE_PUSHING)
         {
@@ -846,9 +864,8 @@ public class PlayerController : MonoBehaviour
 
         if (mState == STATE_PUSHING)
         {
-            // should only be called when an object is pushed
-            // but also called when push cancel
-            //OnTerrainUpdated();
+            tilePushed.transform.position = new Vector3((float)Math.Round(tilePushed.transform.position.x), (float)Math.Round(tilePushed.transform.position.y), (float)Math.Round(tilePushed.transform.position.z));
+            tilePushed.transform.localScale = new Vector3(1, 1, 1);
         }
     }
 
@@ -856,8 +873,10 @@ public class PlayerController : MonoBehaviour
     {
         //tilePushed.layer = LayerMask.NameToLayer("Ignore Raycast"); // @@@@@ how are we going to reselect to it to release?
         tilePushed.transform.SetParent(transform, true);
-        tilePushed.tag = "Untagged";
+        tilePushed.tag = "Untagged"; // needed?
         agent.angularSpeed = 0;
+        tilePushed.layer = LayerMask.NameToLayer("Ignore NavMesh");
+        tilePushed.GetComponent<Rigidbody>().useGravity = false; // needed?
         OnTerrainUpdated();
     }
 
@@ -868,6 +887,10 @@ public class PlayerController : MonoBehaviour
         tilePushed.transform.SetParent(null);
         tilePushed.tag = "Pushables";
         agent.angularSpeed = 300;
+        tilePushed.layer = LayerMask.NameToLayer("Default");
+        tilePushed.GetComponent<Rigidbody>().useGravity = true;
+        tilePushed.transform.position = new Vector3((float)Math.Round(tilePushed.transform.position.x), (float)Math.Round(tilePushed.transform.position.y), (float)Math.Round(tilePushed.transform.position.z));
+        tilePushed.transform.localScale = new Vector3(1, 1, 1);
         OnTerrainUpdated();
     }
 
@@ -902,7 +925,7 @@ class Tile
 
     // weight
     private const float mWeightG = 1.0f;
-    private const float mWeightH = 1.0f;
+    private const float mWeightH = 0f;
     private const float mWeightT = 0.00001f;
 
     private bool isHorizontal = false;
