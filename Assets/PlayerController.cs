@@ -17,6 +17,7 @@ public class PlayerController : MonoBehaviour
     public Material pushing;
 
     private Vector3 currPos;
+    private Vector3 currPosTile;
     private GameObject tilePushed;
 
     public GameObject corner1;
@@ -720,6 +721,7 @@ public class PlayerController : MonoBehaviour
                                 path = testPushable;
                                 isGoingToPush = true;
                                 tilePushed = hit.collider.gameObject;
+                                currPosTile = hit.collider.transform.position;
                             }
                             else
                             {
@@ -740,6 +742,8 @@ public class PlayerController : MonoBehaviour
                             path = testPushable;
                             isGoingToPush = true;
                             tilePushed = hit.collider.gameObject;
+                            currPosTile = hit.collider.transform.position;
+
                         }
                     }
 
@@ -763,7 +767,7 @@ public class PlayerController : MonoBehaviour
                 else
                 {
                     // pushing state
-                    if (V3Equal(tilePushed.transform.position, hit.collider.transform.position, 0.1f)) 
+                    if (V3Equal(currPosTile, hit.collider.transform.position, 0.1f)) 
                     {
                         mState = STATE_PUSH_RELEASE;
                         OnDestinationReached(); // push cancel
@@ -777,17 +781,19 @@ public class PlayerController : MonoBehaviour
                         // 1. selected tile must have the same z/x value as tilePushed or currPos
 
                         // not only z/x but y value should also be the same @@@@@@@@@@@@@@@
-                        Debug.Log("<FPC-1>[crate.z]: " + tilePushed.transform.position.z + " [currPos.z]: " + currPos.z + " [hit.z]: " + hit.transform.position.z + " [crate.z == currPos.z]: " + (tilePushed.transform.position.z == currPos.z) + " [hit.z == currPos.z]: " + (hit.transform.position.z == currPos.z)); //float precision check
+                        Debug.Log("<FPC-1>[crate.z]: " + currPosTile.z + " [currPos.z]: " + currPos.z + " [hit.z]: " + hit.transform.position.z + " [crate.z == currPos.z]: " + (currPosTile.z == currPos.z) + " [hit.z == currPos.z]: " + (hit.transform.position.z == currPos.z)); //float precision check
                         //if ((tilePushed.transform.position.z == currPos.z && hit.transform.position.z == currPos.z) || (tilePushed.transform.position.x == currPos.x && hit.transform.position.x == currPos.x))
-                        if ((V3CompEqual(tilePushed.transform.position, currPos, "z", 0.1f) && V3CompEqual(hit.transform.position, currPos, "z", 0.1f)) ||
-                            (V3CompEqual(tilePushed.transform.position, currPos, "x", 0.1f) && V3CompEqual(hit.transform.position, currPos, "x", 0.1f)))
+                        if ((V3CompEqual(currPosTile, currPos, "z", 0.1f) && V3CompEqual(hit.transform.position, currPos, "z", 0.1f)) ||
+                            (V3CompEqual(currPosTile, currPos, "x", 0.1f) && V3CompEqual(hit.transform.position, currPos, "x", 0.1f)))
                         {
                             // 2. both player and the tile should be able to move there
+                            FindOptPath(currPos, hit.transform.position, out player);
+                            FindOptPath(currPosTile + Vector3.down, hit.transform.position + ((currPosTile + Vector3.down) - currPos), out tile);
 
-                            FindOptPath(tilePushed.transform.position + Vector3.down, hit.transform.position, out tile);
-                            Debug.Log("[crate start]: " + (tilePushed.transform.position + Vector3.down) + " [crate dest]: " + hit.transform.position);
-                            Debug.Log("[player start]: " + currPos + " [player dest]: " + (hit.transform.position + (currPos - (tilePushed.transform.position + Vector3.down))));
-                            FindOptPath(currPos, hit.transform.position + (currPos - (tilePushed.transform.position + Vector3.down)), out player);
+                            //FindOptPath(currPosTile + Vector3.down, hit.transform.position, out tile);
+                            Debug.Log("[crate start]: " + (currPosTile + Vector3.down) + " [crate dest]: " + hit.transform.position);
+                            Debug.Log("[player start]: " + currPos + " [player dest]: " + (hit.transform.position + (currPos - (currPosTile + Vector3.down))));
+                            //FindOptPath(currPos, hit.transform.position + (currPos - (currPosTile + Vector3.down)), out player);
 
                             if (player.Count > 0 && tile.Count > 0)
                             {
@@ -808,17 +814,8 @@ public class PlayerController : MonoBehaviour
             }
         }
 
-
-        if (mPath.Count != 0 && agent.remainingDistance == 0.0f)
-        {
-            agent.SetDestination(mPath[0]);
-            currPos = mPath[0];
-            Debug.Log("[currPos] " + currPos);
-            mPath.RemoveAt(0);
-        }
-
         // Latch isMoving
-        if (isMoving && agent.remainingDistance == 0.0f)
+        if (isMoving && agent.remainingDistance == 0.0f && mPath.Count == 0)
         {
             OnDestinationReached();
             isMoving = false;
@@ -828,6 +825,18 @@ public class PlayerController : MonoBehaviour
         {
             OnStartMoving();
             isMoving = true;
+        }
+
+        if (mPath.Count != 0 && agent.remainingDistance == 0.0f)
+        {
+            agent.SetDestination(mPath[0]);
+            currPos = mPath[0];
+            if (tilePushed != null)
+            {
+                currPosTile = tilePushed.transform.position;
+            }
+            Debug.Log("[currPos] " + currPos);
+            mPath.RemoveAt(0);
         }
     }
 
@@ -866,6 +875,7 @@ public class PlayerController : MonoBehaviour
         {
             tilePushed.transform.position = new Vector3((float)Math.Round(tilePushed.transform.position.x), (float)Math.Round(tilePushed.transform.position.y), (float)Math.Round(tilePushed.transform.position.z));
             tilePushed.transform.localScale = new Vector3(1, 1, 1);
+            currPosTile = tilePushed.transform.position;
         }
     }
 
