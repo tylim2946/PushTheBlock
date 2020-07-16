@@ -767,7 +767,7 @@ public class PlayerController : MonoBehaviour
                 else
                 {
                     // pushing state
-                    if (V3Equal(currPosTile, hit.collider.transform.position, 0.1f)) 
+                    if (hit.collider.gameObject == gameObject) 
                     {
                         mState = STATE_PUSH_RELEASE;
                         OnDestinationReached(); // push cancel
@@ -811,6 +811,11 @@ public class PlayerController : MonoBehaviour
             else
             {
                 Debug.Log("[0] Raycast missed");
+                if (mState == STATE_PUSHING)
+                {
+                        mState = STATE_PUSH_RELEASE;
+                        OnDestinationReached(); // push cancel
+                }
             }
         }
 
@@ -885,8 +890,10 @@ public class PlayerController : MonoBehaviour
         tilePushed.transform.SetParent(transform, true);
         tilePushed.tag = "Untagged"; // needed?
         agent.angularSpeed = 0;
+        tilePushed.GetComponent<Collider>().enabled = false;
+        gameObject.GetComponent<Collider>().enabled = true;
         tilePushed.layer = LayerMask.NameToLayer("Ignore NavMesh");
-        tilePushed.GetComponent<Rigidbody>().useGravity = false; // needed?
+        tilePushed.GetComponent<Rigidbody>().useGravity = false;
         OnTerrainUpdated();
     }
 
@@ -897,6 +904,8 @@ public class PlayerController : MonoBehaviour
         tilePushed.transform.SetParent(null);
         tilePushed.tag = "Pushables";
         agent.angularSpeed = 300;
+        tilePushed.GetComponent<Collider>().enabled = true;
+        gameObject.GetComponent<Collider>().enabled = false;
         tilePushed.layer = LayerMask.NameToLayer("Default");
         tilePushed.GetComponent<Rigidbody>().useGravity = true;
         tilePushed.transform.position = new Vector3((float)Math.Round(tilePushed.transform.position.x), (float)Math.Round(tilePushed.transform.position.y), (float)Math.Round(tilePushed.transform.position.z));

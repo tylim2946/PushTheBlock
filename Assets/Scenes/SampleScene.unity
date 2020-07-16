@@ -134,7 +134,7 @@ GameObject:
   - component: {fileID: 78017854}
   - component: {fileID: 78017853}
   - component: {fileID: 78017852}
-  m_Layer: 9
+  m_Layer: 8
   m_Name: Shadow
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -1578,7 +1578,7 @@ GameObject:
   - component: {fileID: 732820135}
   - component: {fileID: 732820136}
   - component: {fileID: 732820137}
-  m_Layer: 9
+  m_Layer: 8
   m_Name: Player
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -1610,7 +1610,7 @@ CapsuleCollider:
   m_GameObject: {fileID: 732820130}
   m_Material: {fileID: 0}
   m_IsTrigger: 0
-  m_Enabled: 0
+  m_Enabled: 1
   m_Radius: 0.5
   m_Height: 2
   m_Direction: 1
@@ -1829,7 +1829,7 @@ GameObject:
   - component: {fileID: 769308438}
   - component: {fileID: 769308437}
   - component: {fileID: 769308436}
-  m_Layer: 0
+  m_Layer: 8
   m_Name: Sphere
   m_TagString: Untagged
   m_Icon: {fileID: 0}
