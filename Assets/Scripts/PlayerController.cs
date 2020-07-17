@@ -38,9 +38,7 @@ public class PlayerController : MonoBehaviour
 
     public int mState = STATE_IDLE;
     private const int STATE_IDLE = 0;
-    private const int STATE_MOVING_START = -1; // implement through functions such as OnDestinationReached()
     private const int STATE_MOVING = 1;
-    private const int STATE_MOVING_STOPPED = -1; // implement through functions such as OnDestinationReached()
     private const int STATE_PUSHING = 2;
     private const int STATE_PUSH_RELEASE = 3;
 
@@ -135,10 +133,7 @@ public class PlayerController : MonoBehaviour
         {
             if (t != null)
             {
-                if (t.IsInitialized())
-                {
                     t.Init();
-                }
             }
         }
     }
@@ -171,6 +166,7 @@ public class PlayerController : MonoBehaviour
 
                     if (candidates.Contains(TileAtArrayPos(worldPos)))
                     {
+                        Debug.Log("Code -2: " + worldPos);
                         candidates.Remove(TileAtArrayPos(worldPos));
                     }
 
@@ -188,6 +184,8 @@ public class PlayerController : MonoBehaviour
                             isPathFound = true;
                             destination = t; //@@@@@@@ 138
                         }
+
+                        Debug.Log("Code -1");
                     }
                 }
 
@@ -200,9 +198,13 @@ public class PlayerController : MonoBehaviour
                     worldPos = sortedCandidates[0].GetPosition();
                 }
 
+                Debug.Log("Code 0");
+
 
             } while (!(candidates.Count == 0 || isPathFound));
         }
+
+        Debug.Log("Code 1");
 
         // Convert explored nodes into path
         if (isPathFound)
@@ -231,14 +233,14 @@ public class PlayerController : MonoBehaviour
 
         InitTiles();
 
-        Debug.Log("pathFound: " + isPathFound);
+        Debug.Log("Code 2");
 
         return isPathFound;
     }
 
     private bool V3Equal(Vector3 a, Vector3 b, float maxDiff)
     {
-        return Vector3.SqrMagnitude(a - b) <= (maxDiff * maxDiff); // 9.99999944E-11f;
+        return Vector3.SqrMagnitude(a - b) <= (maxDiff * maxDiff);
     }
 
     private bool V3CompEqual(Vector3 a, Vector3 b, string component, float maxDiff)
@@ -265,7 +267,7 @@ public class PlayerController : MonoBehaviour
     {
         List<Tile> results = new List<Tile>();
 
-        for (int i = 1; i <= 12; i++) // but then you can only go up if it is ramp && ramp direction matters
+        for (int i = 1; i <= 12; i++)
         {
             Tile test = InitNeighbor(tile, dest, i);
 
@@ -375,7 +377,7 @@ public class PlayerController : MonoBehaviour
 
     private bool CheckRampToTile(Tile t1, Vector3 t2)
     {
-        bool check1 = false; // ramp to tile or tile to ramp // assume t1 and t2 have different y
+        bool check1 = false; // ramp to tile or tile to ramp or ramp to ramp // assume t1 and t2 have different y
         Tile tile = TileAtArrayPos(t2);
 
         // Check 1
@@ -402,7 +404,7 @@ public class PlayerController : MonoBehaviour
 
     private bool CheckRampOri(Tile t1, Vector3 t2, int side)
     {
-        bool check2 = false; // ramp orientation // compare rotation and side value?
+        bool check2 = false; // ramp orientation
         Tile tile = TileAtArrayPos(t2);
         float ori1 = t1.GetObject().transform.rotation.y;
         float ori2 = tile.GetObject().transform.rotation.y;
@@ -708,8 +710,6 @@ public class PlayerController : MonoBehaviour
                             {
                                 testPushable = testPushables[i];
                             }
-
-                            // how can we consider the "least turn" @@@@@@@@@@@@
                         }
 
                         if (testWalkable.Count > 0 && testPushable.Count > 0) // both
@@ -753,7 +753,7 @@ public class PlayerController : MonoBehaviour
                     {
                         if (path[path.Count - 1] == currPos)
                         {
-                            OnDestinationReached(); // @@@@@@@@ technically this is one tile before the destination
+                            OnDestinationReached(); // player already on adjacent tile
                         }
 
                         mPath = path;
@@ -781,19 +781,13 @@ public class PlayerController : MonoBehaviour
                         // 1. selected tile must have the same z/x value as tilePushed or currPos
 
                         // not only z/x but y value should also be the same @@@@@@@@@@@@@@@
-                        Debug.Log("<FPC-1>[crate.z]: " + currPosTile.z + " [currPos.z]: " + currPos.z + " [hit.z]: " + hit.transform.position.z + " [crate.z == currPos.z]: " + (currPosTile.z == currPos.z) + " [hit.z == currPos.z]: " + (hit.transform.position.z == currPos.z)); //float precision check
-                        //if ((tilePushed.transform.position.z == currPos.z && hit.transform.position.z == currPos.z) || (tilePushed.transform.position.x == currPos.x && hit.transform.position.x == currPos.x))
+
                         if ((V3CompEqual(currPosTile, currPos, "z", 0.1f) && V3CompEqual(hit.transform.position, currPos, "z", 0.1f)) ||
                             (V3CompEqual(currPosTile, currPos, "x", 0.1f) && V3CompEqual(hit.transform.position, currPos, "x", 0.1f)))
                         {
                             // 2. both player and the tile should be able to move there
                             FindOptPath(currPos, hit.transform.position, out player);
                             FindOptPath(currPosTile + Vector3.down, hit.transform.position + ((currPosTile + Vector3.down) - currPos), out tile);
-
-                            //FindOptPath(currPosTile + Vector3.down, hit.transform.position, out tile);
-                            Debug.Log("[crate start]: " + (currPosTile + Vector3.down) + " [crate dest]: " + hit.transform.position);
-                            Debug.Log("[player start]: " + currPos + " [player dest]: " + (hit.transform.position + (currPos - (currPosTile + Vector3.down))));
-                            //FindOptPath(currPos, hit.transform.position + (currPos - (currPosTile + Vector3.down)), out player);
 
                             if (player.Count > 0 && tile.Count > 0)
                             {
@@ -862,18 +856,17 @@ public class PlayerController : MonoBehaviour
             mState = STATE_PUSHING;
             isGoingToPush = false;
             GetComponent<MeshRenderer>().material = pushing;
-            OnPushableHeld(); // @@@@@@@@@
+            OnPushableHeld();
         }
-        else if (mState == STATE_PUSH_RELEASE) // must come before mState == STATE_MOVING_PUSHING????
+        else if (mState == STATE_PUSH_RELEASE)
         {
             mState = STATE_IDLE;
             GetComponent<MeshRenderer>().material = idle;
-            OnPushableReleased(); // @@@@@@@@@@@@@@@
+            OnPushableReleased();
         }
         else if (mState != STATE_PUSHING)
         {
             mState = STATE_IDLE;
-            //GetComponent<MeshRenderer>().material = idle;
         }
 
         if (mState == STATE_PUSHING)
@@ -886,9 +879,7 @@ public class PlayerController : MonoBehaviour
 
     private void OnPushableHeld()
     {
-        //tilePushed.layer = LayerMask.NameToLayer("Ignore Raycast"); // @@@@@ how are we going to reselect to it to release?
         tilePushed.transform.SetParent(transform, true);
-        tilePushed.tag = "Untagged"; // needed?
         agent.angularSpeed = 0;
         tilePushed.GetComponent<Collider>().enabled = false;
         gameObject.GetComponent<Collider>().enabled = true;
@@ -899,10 +890,7 @@ public class PlayerController : MonoBehaviour
 
     private void OnPushableReleased()
     {
-        // this should be called before new tilePushed is assigned
-        //tilePushed.layer = LayerMask.NameToLayer("Default");
         tilePushed.transform.SetParent(null);
-        tilePushed.tag = "Pushables";
         agent.angularSpeed = 300;
         tilePushed.GetComponent<Collider>().enabled = true;
         gameObject.GetComponent<Collider>().enabled = false;
