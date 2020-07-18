@@ -879,12 +879,23 @@ public class PlayerController : MonoBehaviour
 
     private void OnPushableHeld()
     {
+        // simulate crate being held by the player
         tilePushed.transform.SetParent(transform, true);
+
+        // player can only push or pull
         agent.angularSpeed = 0;
-        tilePushed.GetComponent<Collider>().enabled = false;
-        gameObject.GetComponent<Collider>().enabled = true;
-        tilePushed.layer = LayerMask.NameToLayer("Ignore NavMesh");
+
+        // disable raycasting
         tilePushed.GetComponent<Rigidbody>().useGravity = false;
+        tilePushed.GetComponent<Collider>().enabled = false;
+
+        // enable raycasting on player
+        gameObject.GetComponent<Collider>().enabled = true;
+
+        // disable NavMesh
+        tilePushed.layer = LayerMask.NameToLayer("Ignore NavMesh");
+
+        // update terrain
         OnTerrainUpdated();
     }
 

@@ -17,8 +17,8 @@ TagManager:
   - 
   - 
   - Ignore NavMesh
-  - 
-  - 
+  - Ignore Spotlight
+  - Ignore NavMesh and Spotlight
   - 
   - 
   - 
