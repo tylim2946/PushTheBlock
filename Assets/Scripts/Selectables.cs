@@ -9,7 +9,7 @@ public class Selectables : MonoBehaviour
 
     void Start()
     {
-        
+
     }
 
     void Update()
@@ -81,11 +81,12 @@ public class Selectables : MonoBehaviour
         }
     }
 #else
+    /*
     void OnMouseDown() // LMB
     {
-        /*
+        
         This is for moving the player and selecting the object
-        */
+        
 
         // click animation
 
@@ -95,5 +96,56 @@ public class Selectables : MonoBehaviour
         
         }
     }
+    */
+    void OnMouseDown() // LMB
+    {
+        /*
+        This is for selecting objects
+        -clicking on objects (tile, cube, crate) will trigger the animation for selection (correct/incorrect anims)
+        -on select, the player will go to the nearest adjacent edge and take push/pull motion
+        */
+
+        // click animation
+        StartClickAnim();
+
+        // push//pulling motion
+        if (selectableType == SelectableType.Crate || selectableType == SelectableType.Cube)
+        {
+
+        }
+    }
+
+    void OnMouseOver() // RMB
+    {
+        /*
+        This is for moving the player
+        -clicking on objects (tile, cube, crate) will trigger the animation for selection (correct/incorrect anims)
+        -on select, the player will move to the closet adjacent edge/block
+        */
+
+        if (Input.GetMouseButtonDown(1))
+        {
+            // click animation
+            StartClickAnim();
+
+            // events depending on selectable type
+            switch (selectableType)
+            {
+                case SelectableType.Tile:
+
+                    break;
+                case SelectableType.Crate:
+
+                    break;
+                case SelectableType.Cube:
+
+                    break;
+                default:
+
+                    break;
+            }
+        }
+    }
+
 #endif
 }

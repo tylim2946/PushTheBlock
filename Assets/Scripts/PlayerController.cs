@@ -3,9 +3,6 @@ using UnityEngine;
 using System;
 using UnityEngine.AI;
 using System.Linq;
-using UnityEngine.Rendering.Universal.Internal;
-using UnityEngine.Tilemaps;
-using UnityEditorInternal;
 
 public class PlayerController : MonoBehaviour
 {
@@ -45,6 +42,7 @@ public class PlayerController : MonoBehaviour
 
     private void Start()
     {
+        Application.targetFrameRate = 60;
         GenerateGrid(out mTiles);
     }
 
